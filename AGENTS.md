@@ -12,6 +12,12 @@
 - **Naming mapping:** A YAML path like `structs -> RandoItems -> members -> enabled` (mounted under root `itemRandomizer`) maps to `config.m_itemRandomizer.m_enabled` in C++ and `config.itemRandomizer.enabled` in QML.
 - **Never edit generated files:** Even though generated C++/Qt config files are committed to git for indexing, never modify them directly.
 
+- **Setting help for tools:** `src/Config/SettingsHelp.hpp` (captions and tooltips per setting path, used by `modgen_console describe`) is generated from `qml/Modules/*.qml` by `src/Config/update_help.py`; rerun it (or build with `-DENABLE_SCHEMA_GEN=ON`) after changing captions or tooltips, and never edit it by hand.
+
+## Using the generator (agents making mods)
+- Use `modgen_console` commands (`describe`, `new`, `set`, `show`, `generate`); see `docs/agents.md`. They print JSON on stdout and never touch the UI's own settings.
+- A generated mod keeps its settings in `mods/<name>/d2modgen.json`; `ConfigHandler::openMod` loads them back (File -> Open mod in the UI).
+
 ## Architecture & Mapping
 - Core C++ generator logic lives in `src/CoreLib/Modules/`.
 - UI configurations live in `qml/Modules/` using the naming convention `Module-<Name>.qml`.

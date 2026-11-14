@@ -30,6 +30,16 @@ MenuBar {
         }
     }
 
+    // A mod folder (mods/<name>) anywhere, e.g. in another game copy or a mod manager's folder.
+    FolderDialog {
+        id: folderDialogMod
+        title: qsTr("Choose a mod folder (mods/<name>)")
+
+        onAccepted: {
+            appui.openMod(folderDialogMod.selectedFolder);
+        }
+    }
+
     Menu {
         id: mainMenuFile
         delegate: MenuItem {
@@ -67,6 +77,34 @@ MenuBar {
             text: qsTr("Load config...")
             shortcut: "Ctrl+O"
             onTriggered: fileDialogOpen.open()
+        }
+
+        // Every generated mod keeps its settings; opening one loads them and its mod id, so
+        // Generate (F9) rewrites that mod.
+        Menu {
+            id: openModMenu
+            title: qsTr("Open mod")
+            property var modNames: []
+
+            onAboutToShow: modNames = appui.listMods()
+
+            Instantiator {
+                model: openModMenu.modNames
+                delegate: MenuItem {
+                    required property string modelData
+                    text: modelData
+                    onTriggered: appui.openMod(modelData)
+                }
+                onObjectAdded: (index, object) => openModMenu.insertItem(index, object)
+                onObjectRemoved: (index, object) => openModMenu.removeItem(object)
+            }
+
+            MenuSeparator {}
+
+            Action {
+                text: qsTr("Browse for a mod folder...")
+                onTriggered: folderDialogMod.open()
+            }
         }
         Action {
             text: qsTr("Clear config")

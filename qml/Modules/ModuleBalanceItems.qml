@@ -43,7 +43,7 @@ WidgetCommonTab {
     }
     ModuleBalanceItemsCommon {
         caption: qsTr("Magic/rare affixes")
-        value_context: config.balanceItems.sets
+        value_context: config.balanceItems.affixes
     }
     ModuleBalanceItemsCommon {
         caption: qsTr("Cube crafted affixes")

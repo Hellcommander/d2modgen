@@ -8,8 +8,13 @@
 #include "MernelPlatform/PropertyTree.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <charconv>
 #include <functional>
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace D2ModGen {
 
@@ -272,6 +277,41 @@ protected:
 
     std::vector<Child> m_children;
 
+    template<typename Container>
+    static void describeContainer(const Container& container, const char* type, Mernel::PropertyTree& list, const std::string& prefix)
+    {
+        for (const auto& prop : container.m_list) {
+            if (prop.m_isConstant)
+                continue;
+            Mernel::PropertyTree item;
+            item.convertToMap();
+            item["path"]        = Mernel::PropertyTreeScalar(prefix + prop.getName());
+            item["type"]        = Mernel::PropertyTreeScalar(type);
+            item["value"]       = Mernel::PropertyTreeScalar(*prop.m_pointer);
+            item["default"]     = Mernel::PropertyTreeScalar(prop.m_zero);
+            item["recommended"] = Mernel::PropertyTreeScalar(prop.m_recc);
+            if constexpr (requires { prop.m_min; }) {
+                item["min"] = Mernel::PropertyTreeScalar(prop.m_min);
+                item["max"] = Mernel::PropertyTreeScalar(prop.m_max);
+                if (prop.m_isPercent)
+                    item["percent"] = Mernel::PropertyTreeScalar(true);
+                if (prop.m_hasLogScale)
+                    item["logScale"] = Mernel::PropertyTreeScalar(true);
+            }
+            if (prop.m_skipPresets) {
+                item["presetsIgnore"] = Mernel::PropertyTreeScalar(true);
+            } else if (!prop.m_presets.empty()) {
+                Mernel::PropertyTree presets;
+                presets.convertToMap();
+                for (const auto& preset : prop.m_presets)
+                    if (preset.m_globalIndex >= 0 && preset.m_globalIndex < static_cast<int>(s_presetNames.size()))
+                        presets[s_presetNames[preset.m_globalIndex]] = Mernel::PropertyTreeScalar(preset.m_value);
+                item["presets"] = std::move(presets);
+            }
+            list.append(std::move(item));
+        }
+    }
+
     CommonStruct* m_parent = nullptr;
 
     // this is to send notification from UX to BL, e.g. "user changed slider, please make undo frame"
@@ -423,6 +463,66 @@ public:
 
             propertyTree[child.getName()] = std::move(childData);
         }
+    }
+
+    // Reflection for tools (the console app's agent commands): appends one map per setting under this
+    // struct to `list`: path ("balanceMonsters.monsterAttack"), type, value, default, recommended,
+    // presets and, for integers, min/max/percent/logScale. Constant settings are left out.
+    void describeSettings(Mernel::PropertyTree& list, const std::string& prefix = {}) const
+    {
+        if (!list.isList())
+            list.convertToList();
+        describeContainer(m_bool, "bool", list, prefix);
+        describeContainer(m_int, "int", list, prefix);
+        describeContainer(m_string, "string", list, prefix);
+        for (auto& child : m_children)
+            child.m_record->describeSettings(list, prefix + child.getName() + ".");
+    }
+
+    // Sets one setting by its dotted path from text ("150", "true", "abc"). Returns an empty string on
+    // success, otherwise what is wrong (unknown name, not a number, outside min..max).
+    std::string setByPath(std::string_view path, std::string_view text)
+    {
+        const auto dot = path.find('.');
+        if (dot != std::string_view::npos) {
+            const auto head = path.substr(0, dot);
+            for (auto& child : m_children)
+                if (child.m_name == head)
+                    return child.m_record->setByPath(path.substr(dot + 1), text);
+            return "no section '" + std::string(head) + "'";
+        }
+        for (auto& prop : m_int.m_list) {
+            if (prop.m_name != path || prop.m_isConstant)
+                continue;
+            int64_t value  = 0;
+            auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+            if (ec != std::errc() || end != text.data() + text.size())
+                return "'" + std::string(path) + "' needs a whole number, got '" + std::string(text) + "'";
+            if (value < prop.m_min || value > prop.m_max)
+                return "'" + std::string(path) + "' must be " + std::to_string(prop.m_min) + ".." + std::to_string(prop.m_max) + ", got " + std::to_string(value);
+            prop.set(value);
+            return {};
+        }
+        for (auto& prop : m_bool.m_list) {
+            if (prop.m_name != path || prop.m_isConstant)
+                continue;
+            std::string lower(text);
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lower == "true" || lower == "1" || lower == "yes" || lower == "on")
+                prop.set(true);
+            else if (lower == "false" || lower == "0" || lower == "no" || lower == "off")
+                prop.set(false);
+            else
+                return "'" + std::string(path) + "' needs true or false, got '" + std::string(text) + "'";
+            return {};
+        }
+        for (auto& prop : m_string.m_list) {
+            if (prop.m_name != path || prop.m_isConstant)
+                continue;
+            prop.set(std::string(text));
+            return {};
+        }
+        return "no setting '" + std::string(path) + "'";
     }
 
     PropertyInt& getPropertyInt(size_t index)

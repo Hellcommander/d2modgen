@@ -49,7 +49,7 @@ std::string getInstallLocationFromRegistry(bool resurrected)
 {
     static const QString base("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Diablo II");
     QSettings            set(base + (resurrected ? " Resurrected" : ""),
-                             QSettings::Registry32Format);
+                  QSettings::Registry32Format);
     return ensureTrailingSlash(set.value("InstallLocation").toString()).toStdString();
 }
 #else
@@ -191,6 +191,46 @@ void UIController::loadConfig(QString filename)
     } else {
         emit statusUpdate(tr("Error when loading!"));
     }
+}
+
+QStringList UIController::listMods()
+{
+    QStringList           result;
+    GenerationEnvironment env;
+    if (!env.init(m_configHandler.m_appConfig))
+        return result;
+    for (const auto& mod : ConfigHandler::listMods(env))
+        if (mod.hasSettings)
+            result << QString::fromStdString(mod.name);
+    return result;
+}
+
+void UIController::openMod(QString nameOrUrl)
+{
+    Mernel::std_path path;
+    const QUrl       url(nameOrUrl);
+    if (url.isLocalFile()) {
+        path = string2path(url.toLocalFile().toStdString());
+    } else {
+        GenerationEnvironment env;
+        if (!env.init(m_configHandler.m_appConfig)) {
+            emit statusUpdate(tr("Set the input folder on the Main page first."));
+            return;
+        }
+        env.modName = nameOrUrl.toStdString();
+        path        = ConfigHandler::modFolder(env);
+    }
+
+    std::string message;
+    if (!m_configHandler.openMod(path, message)) {
+        emit statusUpdate(QString::fromStdString(message));
+        return;
+    }
+    // undo must not bring back another mod's settings under this mod's name
+    m_delayTimer->stop();
+    m_undo.clear();
+    pushUndoCurrent();
+    emit statusUpdate(QString::fromStdString(message));
 }
 
 void UIController::clearConfig()

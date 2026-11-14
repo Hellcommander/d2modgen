@@ -61,9 +61,19 @@ target_sources(Config PRIVATE
     ${sourceRoot}/Config/Config.yaml
     ${sourceRoot}/Config/AppConfig.yaml
     ${sourceRoot}/Config/update.py
+    ${sourceRoot}/Config/update_help.py
 )
 
 if (Python3_EXECUTABLE AND ENABLE_SCHEMA_GEN)
+    # captions and tooltips of the settings, for the console app's agent commands
+    file(GLOB moduleQmlFiles ${CMAKE_CURRENT_SOURCE_DIR}/qml/Modules/*.qml)
+    add_custom_command(OUTPUT "${sourceRoot}/Config/SettingsHelp.hpp"
+                       COMMAND "${Python3_EXECUTABLE}" "${sourceRoot}/Config/update_help.py"
+                       DEPENDS "${sourceRoot}/Config/update_help.py" ${moduleQmlFiles}
+                       WORKING_DIRECTORY "${sourceRoot}/Config"
+                       COMMENT "Generating SettingsHelp.hpp from qml/Modules"
+                       VERBATIM
+                       CODEGEN)
     add_custom_command(OUTPUT "${sourceRoot}/Config/Config.hpp" "${sourceRoot}/Config/ConfigQt.hpp"
                        COMMAND "${Python3_EXECUTABLE}" "${sourceRoot}/Config/update.py" "Config"
                        MAIN_DEPENDENCY "${sourceRoot}/Config/Config.yaml"

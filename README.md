@@ -50,6 +50,19 @@ Note 3: if you want to return to unmodded, press "Reset launch to unmodded" (aga
 There are 5 pre-made configs to quickly start rando!  
 For starters I recommend first in the list.
 
+# Open a mod again to edit it
+Every Generate also saves the settings that made the mod, as `mods/<name>/d2modgen.json` next to `<name>.mpq`
+(neither the game nor mod managers read that file). **File -> Open mod** lists those mods in the output folder;
+picking one loads its settings and its mod id, so Generate (F9) rewrites that same mod. **Browse for a mod folder...**
+opens a mod anywhere else, for example in another game copy or in a mod manager's folder (D2RMM lists
+`mods/<name>/<name>.mpq` as a data mod, so its folder works as an output folder too). Mods made before this
+version have no saved settings: open their old config with Load config, then Generate once.
+
+# For scripts and AI agents
+`modgen_console` also has a small JSON command line for making mods without the UI: list every setting with
+its type, range, presets and help text, create a mod from a preset, change settings by name (checked against
+their ranges, with suggestions for typos) and generate. See **[docs/agents.md](docs/agents.md)**.
+
 # Detailed docs with screenshots
 **[Check documentation and in-game screenshots here](docs/app.md)**
 

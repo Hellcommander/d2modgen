@@ -41,8 +41,13 @@ public:
 
     Q_INVOKABLE void saveConfig(QString filename);
     Q_INVOKABLE void loadConfig(QString filename);
-    Q_INVOKABLE void clearConfig();
-    Q_INVOKABLE void resetToRecommended();
+
+    // Mod library: mods that keep their settings (d2modgen.json) in the current output folder, and
+    // opening one (by name, or a folder/file URL) to edit and regenerate it.
+    Q_INVOKABLE QStringList listMods();
+    Q_INVOKABLE void        openMod(QString nameOrUrl);
+    Q_INVOKABLE void        clearConfig();
+    Q_INVOKABLE void        resetToRecommended();
 
     Q_INVOKABLE void makeUndo();
     Q_INVOKABLE void disableAutoSave();
